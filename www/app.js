@@ -571,7 +571,7 @@ function parseTelegramPage(page) {
 
 async function fetchTelegramItems() {
   if (IS_NATIVE_APP) {
-    const page = await nativeGet('https://t.me/kharkiv_info_chanel', { 'Accept-Language': 'uk-UA,uk;q=0.9,en;q=0.7' });
+    const page = await nativeGet('https://t.me/tlknewsua', { 'Accept-Language': 'uk-UA,uk;q=0.9,en;q=0.7' });
     return parseTelegramPage(page);
   }
   const response = await fetch('/api/telegram-news', { cache: 'no-store' });
@@ -1006,7 +1006,7 @@ function renderTelegramNews(items) {
   items.forEach((item, index) => {
     const link = document.createElement('a');
     link.className = 'telegram-news-item';
-    link.href = item.url || 'https://t.me/kharkiv_info_chanel';
+    link.href = item.url || 'https://t.me/tlknewsua';
     link.target = '_blank';
     link.rel = 'noopener noreferrer';
     link.innerHTML = `
@@ -1030,7 +1030,7 @@ async function loadTelegramNews() {
     console.warn('Telegram feed error:', error);
     telegramFeedStatus.textContent = 'НЕ ВДАЛОСЯ ОТРИМАТИ НОВИНИ';
     if (!telegramFeedList.children.length) {
-      telegramFeedList.innerHTML = '<a class="telegram-news-item" href="https://t.me/kharkiv_info_chanel" target="_blank" rel="noopener noreferrer"><div class="telegram-news-item__text">Натисніть, щоб відкрити канал у Telegram.</div></a>';
+      telegramFeedList.innerHTML = '<a class="telegram-news-item" href="https://t.me/tlknewsua" target="_blank" rel="noopener noreferrer"><div class="telegram-news-item__text">Натисніть, щоб відкрити канал у Telegram.</div></a>';
     }
   }
 }
