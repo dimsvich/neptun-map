@@ -551,22 +551,31 @@ async function fetchJSON(url) {
 
 // Повторяет логику telegram_news() из server.py
 function parseTelegramPage(page) {
-  const doc = new DOMParser().parseFromString(page, 'text/html');
+const TG_MAX_ITEMS = 20;     // сколько последних постов показывать
+const TG_MAX_CHARS = 600;    // максимум символов на один пост
+const TG_MAX_HTML = 400000;  // читаем только «хвост» страницы (там свежие посты)
+
+function parseTelegramPage(page) {
+  const tail = page.length > TG_MAX_HTML ? page.slice(-TG_MAX_HTML) : page;
+  const doc = new DOMParser().parseFromString(tail, 'text/html');
+  const wraps = Array.from(doc.querySelectorAll('.tgme_widget_message_wrap')).slice(-TG_MAX_ITEMS);
   const items = [];
-  doc.querySelectorAll('.tgme_widget_message_wrap').forEach(wrap => {
+  for (const wrap of wraps) {
     const post = wrap.querySelector('[data-post]')?.getAttribute('data-post');
     const textEl = wrap.querySelector('.tgme_widget_message_text');
-    if (!post || !textEl) return;
+    if (!post || !textEl) continue;
     textEl.querySelectorAll('br').forEach(br => br.replaceWith('\n'));
-    const text = textEl.textContent.replace(/\n{3,}/g, '\n\n').trim();
-    if (!text) return;
+    let text = textEl.textContent.replace(/\n{3,}/g, '\n\n').trim();
+    if (!text) continue;
+    if (text.length > TG_MAX_CHARS) text = text.slice(0, TG_MAX_CHARS) + '…';
     items.push({
       text,
       datetime: wrap.querySelector('time')?.getAttribute('datetime') || '',
       url: 'https://t.me/' + post
     });
-  });
-  return items.slice(-10);
+  }
+  return items;
+}
 }
 
 async function fetchTelegramItems() {
@@ -1023,16 +1032,20 @@ function renderTelegramNews(items) {
 }
 
 async function loadTelegramNews() {
+ let telegramBusy = false;
+async function loadTelegramNews() {
+  if (telegramBusy) return;   // не запускать новый запрос, пока не закончился прошлый
+  telegramBusy = true;
   telegramFeedStatus.textContent = 'ОНОВЛЕННЯ СТРІЧКИ...';
   try {
     renderTelegramNews(await fetchTelegramItems());
   } catch (error) {
     console.warn('Telegram feed error:', error);
     telegramFeedStatus.textContent = 'НЕ ВДАЛОСЯ ОТРИМАТИ НОВИНИ';
-    if (!telegramFeedList.children.length) {
-      telegramFeedList.innerHTML = '<a class="telegram-news-item" href="https://t.me/tlknewsua" target="_blank" rel="noopener noreferrer"><div class="telegram-news-item__text">Натисніть, щоб відкрити канал у Telegram.</div></a>';
-    }
+  } finally {
+    telegramBusy = false;
   }
+}
 }
 
 function setTelegramFeedHidden(hidden) {
@@ -1045,4 +1058,4 @@ telegramFeedToggle?.addEventListener('click', () => setTelegramFeedHidden(true))
 telegramFeedTab?.addEventListener('click', () => setTelegramFeedHidden(false));
 setTelegramFeedHidden(localStorage.getItem('telegram-feed-hidden') === '1');
 loadTelegramNews();
-setInterval(loadTelegramNews, 10000);
+setInterval(loadTelegramNews, 30000);
