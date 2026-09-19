@@ -17,6 +17,8 @@ jobs:
           java-version: 21
       - run: npm install
       - run: npm run sync
+      - name: Generate icons
+        run: npx @capacitor/assets generate --android --iconBackgroundColor '#020c07' --iconBackgroundColorDark '#020c07'
       - name: Build debug APK
         working-directory: android
         run: chmod +x gradlew && ./gradlew assembleDebug
