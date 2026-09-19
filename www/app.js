@@ -521,6 +521,9 @@ function applyNeptunAlerts(payload = {}) {
 // В Android-приложении server.py нет, поэтому ходим напрямую к NEPTUN
 // через нативный CapacitorHttp (он не подпадает под CORS).
 const IS_NATIVE_APP = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+// >>> ИМЯ TELEGRAM-КАНАЛА ДЛЯ НОВОСТЕЙ (без @ и без https://t.me/) <<<
+const TG_CHANNEL = 'zalizne_nebo';
+
 const NEPTUN_BASE = 'https://neptun.in.ua';
 const NEPTUN_ROUTES = {
   '/api/alerts': '/api/v1/alerts',
@@ -549,8 +552,7 @@ async function fetchJSON(url) {
   return response.json();
 }
 
-// Повторяет логику telegram_news() из server.py
-function parseTelegramPage(page) {
+// Ограничения, чтобы лента не тормозила приложение
 const TG_MAX_ITEMS = 20;     // сколько последних постов показывать
 const TG_MAX_CHARS = 600;    // максимум символов на один пост
 const TG_MAX_HTML = 400000;  // читаем только «хвост» страницы (там свежие посты)
@@ -576,11 +578,10 @@ function parseTelegramPage(page) {
   }
   return items;
 }
-}
 
 async function fetchTelegramItems() {
   if (IS_NATIVE_APP) {
-    const page = await nativeGet('https://t.me/tlknewsua', { 'Accept-Language': 'uk-UA,uk;q=0.9,en;q=0.7' });
+    const page = await nativeGet('https://t.me/s/' + TG_CHANNEL, { 'Accept-Language': 'uk-UA,uk;q=0.9,en;q=0.7' });
     return parseTelegramPage(page);
   }
   const response = await fetch('/api/telegram-news', { cache: 'no-store' });
@@ -985,7 +986,7 @@ document.getElementById('styleBtn').addEventListener('click', () => document.bod
 window.addEventListener('resize', () => map.resize());
 
 
-// Telegram news feed: @zalizne_nebo
+// Telegram news feed (канал задаётся в TG_CHANNEL)
 const telegramFeed = document.getElementById('telegramFeed');
 const telegramFeedList = document.getElementById('telegramFeedList');
 const telegramFeedStatus = document.getElementById('telegramFeedStatus');
@@ -1015,7 +1016,7 @@ function renderTelegramNews(items) {
   items.forEach((item, index) => {
     const link = document.createElement('a');
     link.className = 'telegram-news-item';
-    link.href = item.url || 'https://t.me/tlknewsua';
+    link.href = item.url || ('https://t.me/' + TG_CHANNEL);
     link.target = '_blank';
     link.rel = 'noopener noreferrer';
     link.innerHTML = `
@@ -1031,21 +1032,19 @@ function renderTelegramNews(items) {
   telegramFeedStatus.textContent = `ОНОВЛЕНО · ${formatTelegramTime(new Date().toISOString())}`;
 }
 
+let telegramBusy = false;
 async function loadTelegramNews() {
- let telegramBusy = false;
-async function loadTelegramNews() {
-  if (telegramBusy) return;   // не запускать новый запрос, пока не закончился прошлый
+  if (telegramBusy) return;   // не запускаем новый запрос, пока не закончился прошлый
   telegramBusy = true;
   telegramFeedStatus.textContent = 'ОНОВЛЕННЯ СТРІЧКИ...';
   try {
     renderTelegramNews(await fetchTelegramItems());
   } catch (error) {
     console.warn('Telegram feed error:', error);
-    telegramFeedStatus.textContent = 'НЕ ВДАЛОСЯ ОТРИМАТИ НОВИНИ';
+    telegramFeedStatus.textContent = 'ПОМИЛКА: ' + String(error && error.message || error).slice(0, 80);
   } finally {
     telegramBusy = false;
   }
-}
 }
 
 function setTelegramFeedHidden(hidden) {
