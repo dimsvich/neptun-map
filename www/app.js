@@ -1089,12 +1089,12 @@ new MutationObserver(mutations => {
 }).observe(document.body, { childList: true, subtree: true, characterData: true });
 
 // === Вторая вкладка новостей (другой Telegram-канал) ===
-const FEED2_CHANNEL = 'monitor 1654';   // <-- ваш канал, без @ и без https://t.me/
-const FEED2_LABEL = 'monitor 1654';       // надпись на вкладке (лучше короткая)
-const FEED2_TAB_OFFSET = 50;         // на сколько пикселей ниже первой вкладки
+const FEED2_CHANNEL = 'kharkiv_info_chanel';   // <-- ваш канал, без @ и без https://t.me/
+const FEED2_LABEL = 'Моніторинг ПЦ';       // надпись на вкладке (лучше короткая)
+const FEED2_TAB_OFFSET = 120;         // на сколько пикселей ниже первой вкладки
 
 (function initSecondFeed() {
-  if (!FEED2_CHANNEL || FEED2_CHANNEL === 'tlknewsua') return;
+  if (!FEED2_CHANNEL || FEED2_CHANNEL === 'ИМЯ_КАНАЛА') return;
   const panel1 = document.getElementById('telegramFeed');
   const tab1 = document.getElementById('telegramFeedTab');
   if (!panel1 || !tab1) return;
