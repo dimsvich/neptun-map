@@ -1021,7 +1021,7 @@ function renderTelegramNews(items) {
     link.rel = 'noopener noreferrer';
     link.innerHTML = `
       <div class="telegram-news-item__meta">
-        <span>ПОВІДОМЛЕННЯ ${String(index + 1).padStart(2, '0')}</span>
+        <span>СООБЩЕНИЕ ${String(index + 1).padStart(2, '0')}</span>
         <time>${escapeTelegramText(formatTelegramTime(item.datetime))}</time>
       </div>
       <div class="telegram-news-item__text">${escapeTelegramText(item.text)}</div>`;
