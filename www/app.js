@@ -507,7 +507,7 @@ function applyNeptunAlerts(payload = {}) {
 
   const live = document.querySelector('.live-status');
   if (live) {
-    live.textContent = `● ТРИВОГИ: РАЙОНИ ${activeRaions.length}/${raionFeatures.length} | ОБЛАСТІ ${activeOblasts.length}/${oblastFeatures.length}`;
+    live.textContent = `● ТРЕВОГИ: РАЙОНЫ ${activeRaions.length}/${raionFeatures.length} | ОБЛАСТИ ${activeOblasts.length}/${oblastFeatures.length}`;
   }
 
   console.log('NEPTUN active raions:', activeRaions.map(x => x.key || x.name));
@@ -1058,3 +1058,127 @@ telegramFeedTab?.addEventListener('click', () => setTelegramFeedHidden(false));
 setTelegramFeedHidden(localStorage.getItem('telegram-feed-hidden') === '1');
 loadTelegramNews();
 setInterval(loadTelegramNews, 30000);
+
+
+// === Вторая вкладка новостей (другой Telegram-канал) ===
+const FEED2_CHANNEL = 'ИМЯ_КАНАЛА';   // <-- ваш канал, без @ и без https://t.me/
+const FEED2_LABEL = 'НОВИНИ 2';       // надпись на вкладке (лучше короткая)
+const FEED2_TAB_OFFSET = 150;         // на сколько пикселей ниже первой вкладки
+
+(function initSecondFeed() {
+  if (!FEED2_CHANNEL || FEED2_CHANNEL === 'ИМЯ_КАНАЛА') return;
+  const panel1 = document.getElementById('telegramFeed');
+  const tab1 = document.getElementById('telegramFeedTab');
+  if (!panel1 || !tab1) return;
+
+  // Панель и вкладка №2 — копии первых
+  const panel2 = panel1.cloneNode(true);
+  panel2.id = 'telegramFeed2';
+  panel2.setAttribute('aria-label', 'Новини Telegram: ' + FEED2_CHANNEL);
+  panel2.classList.add('is-hidden');
+  const link2 = 'https://t.me/' + FEED2_CHANNEL;
+  const headLink = panel2.querySelector('.telegram-feed__header a');
+  headLink.href = link2;
+  headLink.textContent = '@' + FEED2_CHANNEL;
+  panel2.querySelector('.telegram-feed__open').href = link2;
+  const toggle2 = panel2.querySelector('.telegram-feed__toggle');
+  toggle2.id = 'telegramFeedToggle2';
+  const status2 = panel2.querySelector('.telegram-feed__status');
+  status2.id = 'telegramFeedStatus2';
+  status2.textContent = 'ЗАВАНТАЖЕННЯ НОВИН...';
+  const list2 = panel2.querySelector('.telegram-feed__list');
+  list2.id = 'telegramFeedList2';
+  list2.innerHTML = '';
+  panel1.after(panel2);
+
+  const tab2 = tab1.cloneNode(true);
+  tab2.id = 'telegramFeedTab2';
+  tab2.textContent = FEED2_LABEL;
+  tab2.classList.add('is-visible');
+  tab2.style.top = `calc(50% + ${FEED2_TAB_OFFSET}px)`;
+  tab1.after(tab2);
+
+  let busy = false;
+  async function loadFeed2() {
+    if (busy || panel2.classList.contains('is-hidden')) return;
+    busy = true;
+    status2.textContent = 'ОНОВЛЕННЯ СТРІЧКИ...';
+    try {
+      if (!IS_NATIVE_APP) throw new Error('працює лише в додатку');
+      const page = await nativeGet('https://t.me/s/' + FEED2_CHANNEL, { 'Accept-Language': 'uk-UA,uk;q=0.9,en;q=0.7' });
+      const items = parseTelegramPage(page);
+      list2.innerHTML = '';
+      if (!items.length) {
+        status2.textContent = 'НОВИН НЕ ЗНАЙДЕНО';
+      } else {
+        const fragment = document.createDocumentFragment();
+        items.forEach((item, index) => {
+          const a = document.createElement('a');
+          a.className = 'telegram-news-item';
+          a.href = item.url || link2;
+          a.target = '_blank';
+          a.rel = 'noopener noreferrer';
+          a.innerHTML = `
+            <div class="telegram-news-item__meta">
+              <span>ПОВІДОМЛЕННЯ ${String(index + 1).padStart(2, '0')}</span>
+              <time>${escapeTelegramText(formatTelegramTime(item.datetime))}</time>
+            </div>
+            <div class="telegram-news-item__text">${escapeTelegramText(item.text)}</div>`;
+          fragment.appendChild(a);
+        });
+        list2.appendChild(fragment);
+        list2.scrollTop = list2.scrollHeight;
+        status2.textContent = `ОНОВЛЕНО · ${formatTelegramTime(new Date().toISOString())}`;
+      }
+    } catch (error) {
+      console.warn('Feed 2 error:', error);
+      status2.textContent = 'ПОМИЛКА: ' + String((error && error.message) || error).slice(0, 80);
+    } finally {
+      busy = false;
+    }
+  }
+
+  function setFeed2Hidden(hidden) {
+    panel2.classList.toggle('is-hidden', hidden);
+    tab2.classList.toggle('is-visible', hidden);
+    if (!hidden) loadFeed2();
+  }
+
+  // Открыли №2 — закрываем №1, и наоборот
+  tab2.addEventListener('click', () => { setTelegramFeedHidden(true); setFeed2Hidden(false); });
+  toggle2.addEventListener('click', () => setFeed2Hidden(true));
+  tab1.addEventListener('click', () => setFeed2Hidden(true));
+
+  setInterval(loadFeed2, 30000);   // обновляем только пока панель №2 открыта
+})();
+
+
+
+
+// === Замена слов из внешних данных (NEPTUN) на русские ===
+// Добавляйте сюда новые пары: [/что заменить/g, 'на что']
+const WORD_REPLACEMENTS = [
+  [/Підтверджень/g, 'Подтверждений'],
+  [/підтверджень/g, 'подтверждений'],
+  [/ПІДТВЕРДЖЕНЬ/g, 'ПОДТВЕРЖДЕНИЙ']
+];
+
+function applyWordReplacements(root) {
+  if (!root) return;
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  let node;
+  while ((node = walker.nextNode())) {
+    const text = node.nodeValue;
+    let changed = text;
+    for (const [from, to] of WORD_REPLACEMENTS) changed = changed.replace(from, to);
+    if (changed !== text) node.nodeValue = changed;
+  }
+}
+
+applyWordReplacements(document.body);
+new MutationObserver(mutations => {
+  for (const m of mutations) {
+    if (m.type === 'characterData') applyWordReplacements(m.target.parentNode);
+    else m.addedNodes.forEach(n => applyWordReplacements(n.nodeType === 1 ? n : n.parentNode));
+  }
+}).observe(document.body, { childList: true, subtree: true, characterData: true });
