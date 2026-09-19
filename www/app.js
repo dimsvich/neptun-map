@@ -1094,7 +1094,7 @@ const FEED2_LABEL = 'monitor 1654';       // надпись на вкладке 
 const FEED2_TAB_OFFSET = 50;         // на сколько пикселей ниже первой вкладки
 
 (function initSecondFeed() {
-  if (!FEED2_CHANNEL || FEED2_CHANNEL === 'monitor1654') return;
+  if (!FEED2_CHANNEL || FEED2_CHANNEL === 'tlknewsua') return;
   const panel1 = document.getElementById('telegramFeed');
   const tab1 = document.getElementById('telegramFeedTab');
   if (!panel1 || !tab1) return;
