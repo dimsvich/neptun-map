@@ -1060,13 +1060,41 @@ loadTelegramNews();
 setInterval(loadTelegramNews, 30000);
 
 
+// === Замена слов из внешних данных (NEPTUN) на русские ===
+// Добавляйте сюда новые пары: [/что заменить/g, 'на что']
+const WORD_REPLACEMENTS = [
+  [/Підтверджень/g, 'Подтверждений'],
+  [/підтверджень/g, 'подтверждений'],
+  [/ПІДТВЕРДЖЕНЬ/g, 'ПОДТВЕРЖДЕНИЙ']
+];
+
+function applyWordReplacements(root) {
+  if (!root) return;
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  let node;
+  while ((node = walker.nextNode())) {
+    const text = node.nodeValue;
+    let changed = text;
+    for (const [from, to] of WORD_REPLACEMENTS) changed = changed.replace(from, to);
+    if (changed !== text) node.nodeValue = changed;
+  }
+}
+
+applyWordReplacements(document.body);
+new MutationObserver(mutations => {
+  for (const m of mutations) {
+    if (m.type === 'characterData') applyWordReplacements(m.target.parentNode);
+    else m.addedNodes.forEach(n => applyWordReplacements(n.nodeType === 1 ? n : n.parentNode));
+  }
+}).observe(document.body, { childList: true, subtree: true, characterData: true });
+
 // === Вторая вкладка новостей (другой Telegram-канал) ===
 const FEED2_CHANNEL = 'ИМЯ_КАНАЛА';   // <-- ваш канал, без @ и без https://t.me/
-const FEED2_LABEL = 'НОВИНИ 2';       // надпись на вкладке (лучше короткая)
+const FEED2_LABEL = 'Моніторинг ПЦ';       // надпись на вкладке (лучше короткая)
 const FEED2_TAB_OFFSET = 150;         // на сколько пикселей ниже первой вкладки
 
 (function initSecondFeed() {
-  if (!FEED2_CHANNEL || FEED2_CHANNEL === 'ИМЯ_КАНАЛА') return;
+  if (!FEED2_CHANNEL || FEED2_CHANNEL === 'kharkiv_info_chanel') return;
   const panel1 = document.getElementById('telegramFeed');
   const tab1 = document.getElementById('telegramFeedTab');
   if (!panel1 || !tab1) return;
@@ -1152,33 +1180,3 @@ const FEED2_TAB_OFFSET = 150;         // на сколько пикселей н
   setInterval(loadFeed2, 30000);   // обновляем только пока панель №2 открыта
 })();
 
-
-
-
-// === Замена слов из внешних данных (NEPTUN) на русские ===
-// Добавляйте сюда новые пары: [/что заменить/g, 'на что']
-const WORD_REPLACEMENTS = [
-  [/Підтверджень/g, 'Подтверждений'],
-  [/підтверджень/g, 'подтверждений'],
-  [/ПІДТВЕРДЖЕНЬ/g, 'ПОДТВЕРЖДЕНИЙ']
-];
-
-function applyWordReplacements(root) {
-  if (!root) return;
-  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-  let node;
-  while ((node = walker.nextNode())) {
-    const text = node.nodeValue;
-    let changed = text;
-    for (const [from, to] of WORD_REPLACEMENTS) changed = changed.replace(from, to);
-    if (changed !== text) node.nodeValue = changed;
-  }
-}
-
-applyWordReplacements(document.body);
-new MutationObserver(mutations => {
-  for (const m of mutations) {
-    if (m.type === 'characterData') applyWordReplacements(m.target.parentNode);
-    else m.addedNodes.forEach(n => applyWordReplacements(n.nodeType === 1 ? n : n.parentNode));
-  }
-}).observe(document.body, { childList: true, subtree: true, characterData: true });
