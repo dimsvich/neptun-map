@@ -19,6 +19,25 @@ jobs:
       - run: npm run sync
       - name: Generate icons
         run: npx @capacitor/assets generate --android --iconBackgroundColor '#020c07' --iconBackgroundColorDark '#020c07'
+      - name: Fix adaptive icon background
+        run: |
+          RES=android/app/src/main/res
+          mkdir -p $RES/values $RES/mipmap-anydpi-v26
+          cat > $RES/values/ic_launcher_background.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <color name="ic_launcher_background">#020C07</color>
+          </resources>
+          EOF
+          for f in ic_launcher ic_launcher_round; do
+          cat > $RES/mipmap-anydpi-v26/$f.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+              <background android:drawable="@color/ic_launcher_background"/>
+              <foreground android:drawable="@mipmap/ic_launcher_foreground"/>
+          </adaptive-icon>
+          EOF
+          done
       - name: Build debug APK
         working-directory: android
         run: chmod +x gradlew && ./gradlew assembleDebug
