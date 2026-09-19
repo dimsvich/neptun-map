@@ -596,6 +596,9 @@ body.alt .telegram-feed-tab { border-color: rgba(104,216,255,.48); }
 .controls-panel {
   display: none !important;
 }
+.timer-panel{
+display: none !important;
+}
 
 
 
