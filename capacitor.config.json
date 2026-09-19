@@ -1,0 +1,9 @@
+{
+  "appId": "ua.local.zalizneneboradar",
+  "appName": "Залізне небо",
+  "webDir": "www",
+  "backgroundColor": "#020c07",
+  "android": {
+    "allowMixedContent": false
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "name": "zalizne-nebo-radar",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "vendor": "node scripts/vendor.js",
+    "sync": "npm run vendor && npx cap sync android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/core": "^8.5.2",
+    "maplibre-gl": "4.7.1"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.5.2"
+  }
+}
