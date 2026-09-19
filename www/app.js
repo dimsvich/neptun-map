@@ -1091,7 +1091,7 @@ new MutationObserver(mutations => {
 // === Вторая вкладка новостей (другой Telegram-канал) ===
 const FEED2_CHANNEL = 'kharkiv_info_chanel';   // <-- ваш канал, без @ и без https://t.me/
 const FEED2_LABEL = 'Моніторинг ПЦ';       // надпись на вкладке (лучше короткая)
-const FEED2_TAB_OFFSET = 100;         // на сколько пикселей ниже первой вкладки
+const FEED2_TAB_OFFSET = 130;         // на сколько пикселей ниже первой вкладки
 
 (function initSecondFeed() {
   if (!FEED2_CHANNEL || FEED2_CHANNEL === 'ИМЯ_КАНАЛА') return;
