@@ -12,7 +12,7 @@
   <link rel="stylesheet" href="styles.css?v=25" />
 </head>
 <body>
-  <div id="map" aria-label="Інтерактивна тактична карта світу"></div>
+  <div id="map" aria-label="Интерактивная карта мира"></div>
 
   <div class="radar-grid"></div>
   <div class="radar-sweep"></div>
@@ -20,10 +20,10 @@
   <div class="vignette"></div>
 
 <div class="timer-panel" aria-label="Актуальное время Украины">
-  <span class="timer-label">ЧАС УКРАЇНИ</span>
+  <!--<span class="timer-label">ВРЕМЯ УКРАИНЫ</span>
   <strong id="countdown">00:00:00</strong>
   <span class="timer-state" id="timerState">--.--.----</span>
-  <span class="iron-dome-title">ЧИСТОЕ НЕБО</span>
+  <span class="iron-dome-title">ЧИСТОЕ НЕБО</span>-->
 </div>
 
   <header class="hud-top">
@@ -50,19 +50,19 @@
   <div class="coordinates" id="coords">31.2056 E / 48.3794 N</div>
 
 
-  <aside class="telegram-feed" id="telegramFeed" aria-label="Новини Telegram каналу Tlk News">
+  <aside class="telegram-feed" id="telegramFeed" aria-label="Новости Telegram канала TLk News">
     <div class="telegram-feed__header">
       <div>
         <span class="telegram-feed__eyebrow">TELEGRAM / LIVE</span>
-        <a href="https://t.me/tlknewsua" target="_blank" rel="noopener noreferrer">Моніторинг цілей</a>
+        <a href="https://t.me/tlknewsua" target="_blank" rel="noopener noreferrer">Мониторинг целей</a>
       </div>
-      <button class="telegram-feed__toggle" id="telegramFeedToggle" type="button" aria-label="Згорнути новини">×</button>
+      <button class="telegram-feed__toggle" id="telegramFeedToggle" type="button" aria-label="Свернуть новости">×</button>
     </div>
-    <div class="telegram-feed__status" id="telegramFeedStatus">ЗАВАНТАЖЕННЯ НОВИН...</div>
+    <div class="telegram-feed__status" id="telegramFeedStatus">Загрузка постов...</div>
     <div class="telegram-feed__list" id="telegramFeedList"></div>
-    <a class="telegram-feed__open" href="https://t.me/tlknewsua" target="_blank" rel="noopener noreferrer">ВІДКРИТИ КАНАЛ →</a>
+    <a class="telegram-feed__open" href="https://t.me/tlknewsua" target="_blank" rel="noopener noreferrer">ОТКРЫТЬ КАНАЛ →</a>
   </aside>
-  <button class="telegram-feed-tab" id="telegramFeedTab" type="button" aria-label="Відкрити новини Telegram">НОВИНИ</button>
+  <button class="telegram-feed-tab" id="telegramFeedTab" type="button" aria-label="Открыть канал Telegram">TLk News</button>
 
   <div class="data-attribution">ДАНІ ТРИВОГ: <a href="https://neptun.in.ua/" target="_blank" rel="noopener noreferrer">NEPTUN</a></div>
 
