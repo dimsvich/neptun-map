@@ -1091,7 +1091,7 @@ new MutationObserver(mutations => {
 // === Вторая вкладка новостей (другой Telegram-канал) ===
 const FEED2_CHANNEL = 'kharkiv_info_chanel';   // <-- ваш канал, без @ и без https://t.me/
 const FEED2_LABEL = 'Моніторинг ПЦ';       // надпись на вкладке (лучше короткая)
-const FEED2_TAB_OFFSET = 120;         // на сколько пикселей ниже первой вкладки
+const FEED2_TAB_OFFSET = 100;         // на сколько пикселей ниже первой вкладки
 
 (function initSecondFeed() {
   if (!FEED2_CHANNEL || FEED2_CHANNEL === 'ИМЯ_КАНАЛА') return;
@@ -1113,7 +1113,7 @@ const FEED2_TAB_OFFSET = 120;         // на сколько пикселей н
   toggle2.id = 'telegramFeedToggle2';
   const status2 = panel2.querySelector('.telegram-feed__status');
   status2.id = 'telegramFeedStatus2';
-  status2.textContent = 'ЗАВАНТАЖЕННЯ НОВИН...';
+  status2.textContent = 'ЗАГРУЗКА...';
   const list2 = panel2.querySelector('.telegram-feed__list');
   list2.id = 'telegramFeedList2';
   list2.innerHTML = '';
@@ -1130,14 +1130,14 @@ const FEED2_TAB_OFFSET = 120;         // на сколько пикселей н
   async function loadFeed2() {
     if (busy || panel2.classList.contains('is-hidden')) return;
     busy = true;
-    status2.textContent = 'ОНОВЛЕННЯ СТРІЧКИ...';
+    status2.textContent = 'ОБНОВЛЕНИЕ...';
     try {
       if (!IS_NATIVE_APP) throw new Error('працює лише в додатку');
       const page = await nativeGet('https://t.me/s/' + FEED2_CHANNEL, { 'Accept-Language': 'uk-UA,uk;q=0.9,en;q=0.7' });
       const items = parseTelegramPage(page);
       list2.innerHTML = '';
       if (!items.length) {
-        status2.textContent = 'НОВИН НЕ ЗНАЙДЕНО';
+        status2.textContent = 'НОВОСТЕЙ НЕ НАЙДЕНО';
       } else {
         const fragment = document.createDocumentFragment();
         items.forEach((item, index) => {
@@ -1148,7 +1148,7 @@ const FEED2_TAB_OFFSET = 120;         // на сколько пикселей н
           a.rel = 'noopener noreferrer';
           a.innerHTML = `
             <div class="telegram-news-item__meta">
-              <span>ПОВІДОМЛЕННЯ ${String(index + 1).padStart(2, '0')}</span>
+              <span># ${String(index + 1).padStart(2, '0')}</span>
               <time>${escapeTelegramText(formatTelegramTime(item.datetime))}</time>
             </div>
             <div class="telegram-news-item__text">${escapeTelegramText(item.text)}</div>`;
@@ -1156,11 +1156,11 @@ const FEED2_TAB_OFFSET = 120;         // на сколько пикселей н
         });
         list2.appendChild(fragment);
         list2.scrollTop = list2.scrollHeight;
-        status2.textContent = `ОНОВЛЕНО · ${formatTelegramTime(new Date().toISOString())}`;
+        status2.textContent = `ОБНОВЛЕНО · ${formatTelegramTime(new Date().toISOString())}`;
       }
     } catch (error) {
       console.warn('Feed 2 error:', error);
-      status2.textContent = 'ПОМИЛКА: ' + String((error && error.message) || error).slice(0, 80);
+      status2.textContent = 'ОШИБКА: ' + String((error && error.message) || error).slice(0, 80);
     } finally {
       busy = false;
     }
