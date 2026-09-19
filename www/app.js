@@ -313,7 +313,7 @@ function showThreatPopup(threat, marker) {
   if (!position) return;
   new maplibregl.Popup({ closeButton: true, closeOnClick: true, offset: 18 })
     .setLngLat([position.lon, position.lat])
-    .setHTML(`<div class="threat-popup"><strong>${safe(threat.title || threatMeta(threat.type).label)}</strong><br>${safe(threat.locality || threat.district || threat.region || '')}<br>Курс: ${Math.round(Number(position.heading) || 0)}°<br>Джерел: ${Number(threat.sourceCount) || 0}<br>Оновлено: ${safe(updated)}${threat.explanationShort ? `<hr>${safe(threat.explanationShort)}` : ''}</div>`)
+    .setHTML(`<div class="threat-popup"><strong>${safe(threat.title || threatMeta(threat.type).label)}</strong><br>${safe(threat.locality || threat.district || threat.region || '')}<br>Курс: ${Math.round(Number(position.heading) || 0)}°<br>Источников: ${Number(threat.sourceCount) || 0}<br>Обновлено: ${safe(updated)}${threat.explanationShort ? `<hr>${safe(threat.explanationShort)}` : ''}</div>`)
     .addTo(map);
 }
 
@@ -388,12 +388,12 @@ async function fetchNeptunThreats() {
     syncThreatMarkers();
     map.getSource('neptun-threat-trails')?.setData(trailsToGeoJSON());
     const counter = document.getElementById('threatCount');
-    if (counter) counter.textContent = `ЦІЛІ: ${currentThreats.length}`;
+    if (counter) counter.textContent = `ЦЕЛИ: ${currentThreats.length}`;
     console.log('NEPTUN active threats:', currentThreats.length, currentThreats);
   } catch (error) {
     console.warn('REST NEPTUN threats тимчасово недоступний:', error);
     const counter = document.getElementById('threatCount');
-    if (counter) counter.textContent = 'ЦІЛІ: API НЕДОСТУПНИЙ';
+    if (counter) counter.textContent = 'ЦЕЛИ: API НЕДОСТУПНИЙ';
   }
 }
 
@@ -402,7 +402,7 @@ function applyThreatSnapshot(snapshot = {}) {
   syncThreatMarkers();
   map.getSource('neptun-threat-trails')?.setData(trailsToGeoJSON());
   const counter = document.getElementById('threatCount');
-  if (counter) counter.textContent = `ЦІЛІ: ${currentThreats.length} • LIVE`;
+  if (counter) counter.textContent = `ЦЕЛИ: ${currentThreats.length}`;
 }
 
 function startNeptunThreats() {
@@ -1021,7 +1021,7 @@ function renderTelegramNews(items) {
     link.rel = 'noopener noreferrer';
     link.innerHTML = `
       <div class="telegram-news-item__meta">
-        <span>СООБЩЕНИЕ ${String(index + 1).padStart(2, '0')}</span>
+        <span># ${String(index + 1).padStart(2, '0')}</span>
         <time>${escapeTelegramText(formatTelegramTime(item.datetime))}</time>
       </div>
       <div class="telegram-news-item__text">${escapeTelegramText(item.text)}</div>`;
@@ -1029,7 +1029,7 @@ function renderTelegramNews(items) {
   });
   telegramFeedList.appendChild(fragment);
   telegramFeedList.scrollTop = telegramFeedList.scrollHeight;
-  telegramFeedStatus.textContent = `ОНОВЛЕНО · ${formatTelegramTime(new Date().toISOString())}`;
+  telegramFeedStatus.textContent = `Обновлено · ${formatTelegramTime(new Date().toISOString())}`;
 }
 
 let telegramBusy = false;
