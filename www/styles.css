@@ -590,3 +590,16 @@ body.alt .telegram-feed-tab { border-color: rgba(104,216,255,.48); }
   .telegram-news-item__text { font-size: 12px; }
   .data-attribution { display: none; }
 }
+/* === Скрытые элементы интерфейса для Android === */
+
+/* Кнопки внизу: «ЦЕНТР: УКРАЇНА» и «MODE» */
+.controls-panel {
+  display: none !important;
+}
+
+/* Вкладка «НОВИНИ» справа и сама панель новостей */
+.telegram-feed,
+.telegram-feed-tab {
+  display: none !important;
+}
+
