@@ -522,7 +522,7 @@ function applyNeptunAlerts(payload = {}) {
 // через нативный CapacitorHttp (он не подпадает под CORS).
 const IS_NATIVE_APP = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
 // >>> ИМЯ TELEGRAM-КАНАЛА ДЛЯ НОВОСТЕЙ (без @ и без https://t.me/) <<<
-const TG_CHANNEL = 'zalizne_nebo';
+const TG_CHANNEL = 'tlknewsua';
 
 const NEPTUN_BASE = 'https://neptun.in.ua';
 const NEPTUN_ROUTES = {
