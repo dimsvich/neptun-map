@@ -599,6 +599,24 @@ body.alt .telegram-feed-tab { border-color: rgba(104,216,255,.48); }
 .timer-panel{
 display: none !important;
 }
+/* === Крупнее шрифты === */
 
+/* Лента новостей */
+.telegram-feed__eyebrow { font-size: 11px; }
+.telegram-feed__header a { font-size: 17px; }
+.telegram-feed__status { font-size: 11px; }
+.telegram-news-item__meta { font-size: 11px; }
+.telegram-news-item__text { font-size: 15px; line-height: 1.4; }
+.telegram-feed__open { font-size: 12px; }
+
+/* Вкладки справа */
+.telegram-feed-tab { font-size: 13px; padding: 15px 9px; }
+
+/* Подписи целей на карте («БПЛА ×2» и т.п.) */
+.live-threat-label { font-size: 12px; }
+
+/* Всплывающее окно при нажатии на цель */
+.maplibregl-popup-content { font-size: 14px; }
+.threat-popup strong { font-size: 16px; }
 
 
