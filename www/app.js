@@ -105,13 +105,13 @@ const threatMarkers = new Map();
 
 const THREAT_META = {
   uav:       { label: 'ШАХЕД / БПЛА', short: 'БПЛА', color: '#ff4d4d', iconKey: 'uav' },
-  recon:     { label: 'РОЗВІД-БПЛА', short: 'РОЗВІД', color: '#f7d154', iconKey: 'recon' },
+  recon:     { label: 'РАЗВЕД-БПЛА', short: 'РАЗВЕД', color: '#f7d154', iconKey: 'recon' },
   fpv:       { label: 'FPV-ДРОН', short: 'FPV', color: '#ff884d', iconKey: 'fpv' },
   missile:   { label: 'РАКЕТА', short: 'РАКЕТА', color: '#ff1f1f', iconKey: 'missile' },
-  ballistic: { label: 'БАЛІСТИКА', short: 'БАЛІСТ.', color: '#ff00d4', iconKey: 'ballistic' },
+  ballistic: { label: 'БАЛЛИСТИКА', short: 'БАЛЛИСТ.', color: '#ff00d4', iconKey: 'ballistic' },
   kab:       { label: 'КАБ', short: 'КАБ', color: '#ff9f1a', iconKey: 'kab' },
-  mig31k:    { label: 'МІГ-31К', short: 'МІГ-31К', color: '#b794ff', iconKey: 'mig31k' },
-  unknown:   { label: 'НЕВІДОМА ЦІЛЬ', short: 'ЦІЛЬ', color: '#ffffff', iconKey: 'unknown' }
+  mig31k:    { label: 'МИГ-31К', short: 'МІГ-31К', color: '#b794ff', iconKey: 'mig31k' },
+  unknown:   { label: 'НЕИЗВЕСТНАЯ ЦЕЛЬ', short: 'ЦЕЛЬ', color: '#ffffff', iconKey: 'unknown' }
 };
 
 const THREAT_ICON_SVG = {
@@ -393,7 +393,7 @@ async function fetchNeptunThreats() {
   } catch (error) {
     console.warn('REST NEPTUN threats тимчасово недоступний:', error);
     const counter = document.getElementById('threatCount');
-    if (counter) counter.textContent = 'ЦЕЛИ: API НЕДОСТУПНИЙ';
+    if (counter) counter.textContent = 'ЦЕЛИ: API НЕДОСТУПЕН';
   }
 }
 
@@ -425,7 +425,7 @@ function startNeptunThreats() {
       neptunRealtimeClient.start();
       return;
     } catch (error) {
-      console.warn('WebSocket/SDK NEPTUN недоступний, переходжу на REST:', error);
+      console.warn('WebSocket/SDK NEPTUN недоступен, перехожу на REST:', error);
     }
   }
 
@@ -543,7 +543,7 @@ async function fetchJSON(url) {
   if (IS_NATIVE_APP) {
     const route = url.split('?')[0];
     const target = NEPTUN_ROUTES[route];
-    if (!target) throw new Error(`Невідомий маршрут: ${route}`);
+    if (!target) throw new Error(`Неизвестный маршрут: ${route}`);
     const text = await nativeGet(NEPTUN_BASE + target, { Accept: 'application/json' });
     return JSON.parse(text);
   }
@@ -651,9 +651,9 @@ async function fetchNeptunAlerts() {
     const payload = await fetchJSON('/api/alerts');
     applyNeptunAlerts(payload);
   } catch (error) {
-    console.warn('REST NEPTUN тимчасово недоступний:', error);
+    console.warn('REST NEPTUN временно недоступен:', error);
     const live = document.querySelector('.live-status');
-    if (live) live.textContent = '● API ТРИВОГ НЕДОСТУПНИЙ';
+    if (live) live.textContent = '● API ТРЕВОГ НЕДОСТУПЕН';
   }
 }
 
@@ -1009,7 +1009,7 @@ function formatTelegramTime(iso) {
 function renderTelegramNews(items) {
   telegramFeedList.innerHTML = '';
   if (!Array.isArray(items) || !items.length) {
-    telegramFeedStatus.textContent = 'НОВИН НЕ ЗНАЙДЕНО';
+    telegramFeedStatus.textContent = 'НОВОСТЕЙ НЕ НАЙДЕНО';
     return;
   }
   const fragment = document.createDocumentFragment();
@@ -1036,12 +1036,12 @@ let telegramBusy = false;
 async function loadTelegramNews() {
   if (telegramBusy) return;   // не запускаем новый запрос, пока не закончился прошлый
   telegramBusy = true;
-  telegramFeedStatus.textContent = 'ОНОВЛЕННЯ СТРІЧКИ...';
+  telegramFeedStatus.textContent = 'ОЬНОВЛЕНИЕ ЛЕНТЫ...';
   try {
     renderTelegramNews(await fetchTelegramItems());
   } catch (error) {
     console.warn('Telegram feed error:', error);
-    telegramFeedStatus.textContent = 'ПОМИЛКА: ' + String(error && error.message || error).slice(0, 80);
+    telegramFeedStatus.textContent = 'ОШИБКА: ' + String(error && error.message || error).slice(0, 80);
   } finally {
     telegramBusy = false;
   }
