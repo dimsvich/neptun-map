@@ -1664,7 +1664,14 @@ const POST_OVERRIDES = {};
       : await (await fetch(url)).text();
     const list = JSON.parse(text);
     const ok = Array.isArray(list)
-      ? list.find((r) => r.category === "place" || r.class === "place")
+      ? list.find(
+          (r) =>
+            r.category === "place" ||
+            r.class === "place" ||
+            (r.category === "boundary" &&
+              r.type === "administrative" &&
+              Number(r.place_rank) >= 16),
+        )
       : null;
     return ok ? { lat: Number(ok.lat), lon: Number(ok.lon) } : null;
   }
