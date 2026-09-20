@@ -1426,8 +1426,8 @@ const FEED2_TAB_OFFSET = 130;
   setInterval(loadFeed2, 30000);
 })();
 
-const POST_CHANNEL = "dimsvich_test";
-const POST_TTL_MIN = 1; // Метка автоматически ликвидируется через 1 минуту после удаления поста в ТГ
+const POST_CHANNEL = "kharkiv_info_chanel";
+const POST_TTL_MIN = 15; // Метка автоматически ликвидируется через 1 минуту после удаления поста в ТГ
 const POST_POLL_SEC = 10;
 const POST_VIEWBOX = "34.8,50.6,38.3,48.7";
 const POST_REGION = "Харківська область";
