@@ -143,7 +143,6 @@ const THREAT_META = {
 };
 
 const THREAT_ICON_SVG = {
-  // Мінімалістичні силуети зверху. Ніс кожної цілі спрямований вгору (0°).
   uav: `<svg viewBox="0 0 64 64" aria-hidden="true"><path class="target-silhouette" d="M32 3 L36 16 L58 35 L45 38 L37 35 L35 39 L38 42 L32 43 L26 42 L29 39 L27 35 L19 38 L6 35 L28 16 Z"/></svg>`,
   recon: `<svg viewBox="0 0 64 64" aria-hidden="true"><path class="target-silhouette" d="M32 4 L36 18 L56 34 L43 37 L36 34 L35 51 L40 57 L34 56 L32 61 L30 56 L24 57 L29 51 L28 34 L21 37 L8 34 L28 18 Z"/><circle cx="32" cy="28" r="2.2" class="target-cutout"/></svg>`,
   fpv: `<svg viewBox="0 0 64 64" aria-hidden="true"><path class="target-stroke" d="M23 23 41 41M41 23 23 41M32 24V40M24 32H40"/><circle cx="18" cy="18" r="7" class="target-ring"/><circle cx="46" cy="18" r="7" class="target-ring"/><circle cx="18" cy="46" r="7" class="target-ring"/><circle cx="46" cy="46" r="7" class="target-ring"/><rect x="27" y="27" width="10" height="10" rx="2" class="target-silhouette"/></svg>`,
@@ -193,8 +192,6 @@ function fallbackMotionForThreat(threat) {
     threat?.velocity?.bearingDeg ?? threat?.heading ?? threat?.bearing,
   );
 
-  // Резервные расчётные скорости используются только когда NEPTUN не передал velocity.
-  // Они нужны, чтобы маркер не зависал между редкими координатными обновлениями.
   const defaults = {
     uav: { speedKmh: 160, maxMinutes: 12 },
     recon: { speedKmh: 120, maxMinutes: 10 },
@@ -228,8 +225,6 @@ function predictedThreatPosition(threat, nowMs = Date.now()) {
 
   const motion = fallbackMotionForThreat(threat);
 
-  // SDK используем только когда в объекте есть настоящая скорость. Без velocity
-  // NEPTUN.predict обычно возвращает исходную точку, поэтому маркер визуально зависает.
   if (
     motion.hasExplicitVelocity &&
     window.NEPTUN &&
@@ -249,10 +244,7 @@ function predictedThreatPosition(threat, nowMs = Date.now()) {
         };
       }
     } catch (error) {
-      console.warn(
-        "NEPTUN.predict error, використовую локальний fallback:",
-        error,
-      );
+      console.warn("NEPTUN.predict error:", error);
     }
   }
 
@@ -264,7 +256,6 @@ function predictedThreatPosition(threat, nowMs = Date.now()) {
     return { lat, lon, heading: motion.bearingDeg ?? 0 };
   }
 
-  // updatedAt важнее confirmedAt: движение считаем от последней фактической координаты.
   const anchor = Date.parse(
     threat.updatedAt || threat.confirmedAt || threat.createdAt || "",
   );
@@ -403,7 +394,6 @@ function showThreatPopup(threat, marker) {
     .addTo(map);
 }
 
-// eslint-disable-next-line prefer-const -- переприсваивается в initPostTracking
 let syncThreatMarkers = function () {
   const active = currentThreats.filter(
     (t) =>
@@ -445,8 +435,6 @@ let syncThreatMarkers = function () {
 };
 
 function addNeptunThreatLayers() {
-  // Траєкторії залишаються MapLibre-шаром, а самі цілі — DOM-маркерами.
-  // Це усуває залежність від glyph/font-шарів і гарантує видимість значків.
   if (!map.getSource("neptun-threat-trails")) {
     map.addSource("neptun-threat-trails", {
       type: "geojson",
@@ -497,13 +485,8 @@ async function fetchNeptunThreats() {
     map.getSource("neptun-threat-trails")?.setData(trailsToGeoJSON());
     const counter = document.getElementById("threatCount");
     if (counter) counter.textContent = `ЦЕЛИ: ${currentThreats.length}`;
-    console.log(
-      "NEPTUN active threats:",
-      currentThreats.length,
-      currentThreats,
-    );
   } catch (error) {
-    console.warn("REST NEPTUN threats тимчасово недоступний:", error);
+    console.warn("REST NEPTUN threats error:", error);
     const counter = document.getElementById("threatCount");
     if (counter) counter.textContent = "ЦЕЛИ: API НЕДОСТУПЕН";
   }
@@ -534,20 +517,14 @@ function startNeptunThreats() {
       );
       neptunRealtimeUnsubscribe = neptunRealtimeClient.subscribe((snapshot) => {
         applyThreatSnapshot(snapshot);
-        console.log(
-          "NEPTUN realtime snapshot:",
-          currentThreats.length,
-          currentThreats,
-        );
       });
       neptunRealtimeClient.start();
       return;
     } catch (error) {
-      console.warn("WebSocket/SDK NEPTUN недоступен, перехожу на REST:", error);
+      console.warn("WebSocket NEPTUN error:", error);
     }
   }
 
-  // Резервний режим, якщо SDK не завантажився.
   fetchNeptunThreats();
   neptunThreatsTimer = setInterval(fetchNeptunThreats, 5000);
 }
@@ -622,8 +599,6 @@ function applyNeptunAlerts(payload = {}) {
   const activeRaions = Array.isArray(payload.raions) ? payload.raions : [];
   const activeOblasts = Array.isArray(payload.oblasts) ? payload.oblasts : [];
 
-  // Важно: районная тревога подсвечивает только район, а не всю область.
-  // Целая область подсвечивается только тогда, когда она есть в payload.oblasts.
   const raionFeatures = (neptunRaionsGeoJSON?.features || []).filter(
     (feature) => featureMatchesItems(feature, activeRaions),
   );
@@ -644,29 +619,13 @@ function applyNeptunAlerts(payload = {}) {
   if (live) {
     live.textContent = `● ТРЕВОГИ: РАЙОНЫ ${activeRaions.length}/${raionFeatures.length} | ОБЛАСТИ ${activeOblasts.length}/${oblastFeatures.length}`;
   }
-
-  console.log(
-    "NEPTUN active raions:",
-    activeRaions.map((x) => x.key || x.name),
-  );
-  console.log("NEPTUN matched raion polygons:", raionFeatures.length);
-  console.log(
-    "NEPTUN active oblasts:",
-    activeOblasts.map((x) => x.key || x.name),
-  );
-  console.log("NEPTUN matched oblast polygons:", oblastFeatures.length);
 }
 
-// ===== Сетевой слой =====
-// В браузере (через server.py) запросы идут на локальные /api/*.
-// В Android-приложении server.py нет, поэтому ходим напрямую к NEPTUN
-// через нативный CapacitorHttp (он не подпадает под CORS).
 const IS_NATIVE_APP = !!(
   window.Capacitor &&
   window.Capacitor.isNativePlatform &&
   window.Capacitor.isNativePlatform()
 );
-// >>> ИМЯ TELEGRAM-КАНАЛА ДЛЯ НОВОСТЕЙ (без @ и без https://t.me/) <<<
 const TG_CHANNEL = "tlknewsua";
 
 const NEPTUN_BASE = "https://neptun.in.ua";
@@ -687,7 +646,7 @@ async function nativeGet(url, headers = {}) {
     responseType: "text",
   });
   if (res.status < 200 || res.status >= 300)
-    throw new Error(`${url}: HTTP ${res.status}`);
+    throw new Error(`${url}: HTTP${res.status}`);
   return typeof res.data === "string" ? res.data : JSON.stringify(res.data);
 }
 
@@ -702,14 +661,13 @@ async function fetchJSON(url) {
     return JSON.parse(text);
   }
   const response = await fetch(url, { cache: "no-store" });
-  if (!response.ok) throw new Error(`${url}: HTTP ${response.status}`);
+  if (!response.ok) throw new Error(`${url}: HTTP${response.status}`);
   return response.json();
 }
 
-// Ограничения, чтобы лента не тормозила приложение
-const TG_MAX_ITEMS = 20; // сколько последних постов показывать
-const TG_MAX_CHARS = 600; // максимум символов на один пост
-const TG_MAX_HTML = 400000; // читаем только «хвост» страницы (там свежие посты)
+const TG_MAX_ITEMS = 20;
+const TG_MAX_CHARS = 600;
+const TG_MAX_HTML = 400000;
 
 function parseTelegramPage(page) {
   const tail = page.length > TG_MAX_HTML ? page.slice(-TG_MAX_HTML) : page;
@@ -725,18 +683,6 @@ function parseTelegramPage(page) {
     const textEl = wrap.querySelector(".tgme_widget_message_text");
     if (!post || !textEl) continue;
 
-    // Shukaemo posylannya na oryhinalnyy post u bloki reply
-    let replyPostId = null;
-    const replyEl = wrap.querySelector('.tgme_widget_message_reply');
-    if (replyEl) {
-      const href = replyEl.getAttribute('href');
-      if (href) {
-        // Vytyahuyemo "channel/id" z posylannya (napryklad t.me/dimsvich_test/123 -> dimsvich_test/123)
-        const m = href.match(/t\.me\/([^/?#]+\/\d+)/);
-        if (m) replyPostId = m[1];
-      }
-    }
-
     textEl.querySelectorAll("br").forEach((br) => br.replaceWith("\n"));
     let text = textEl.textContent.replace(/\n{3,}/g, "\n\n").trim();
     if (!text) continue;
@@ -744,7 +690,6 @@ function parseTelegramPage(page) {
     
     items.push({
       id: post,
-      replyPostId: replyPostId, // ID oryhinalnoho postu, na yakyy zrobleno reply
       text,
       datetime: wrap.querySelector("time")?.getAttribute("datetime") || "",
       url: "https://t.me/" + post,
@@ -781,12 +726,6 @@ async function loadNeptunBoundaries() {
   }
   neptunOblastsGeoJSON = oblasts;
   neptunRaionsGeoJSON = raions;
-  console.log("NEPTUN polygons loaded:", {
-    oblasts: oblasts.features.length,
-    raions: raions.features.length,
-    oblastSample: oblasts.features[0]?.properties,
-    raionSample: raions.features[0]?.properties,
-  });
 }
 
 function addNeptunAlertLayers() {
@@ -846,7 +785,7 @@ async function fetchNeptunAlerts() {
     const payload = await fetchJSON("/api/alerts");
     applyNeptunAlerts(payload);
   } catch (error) {
-    console.warn("REST NEPTUN временно недоступен:", error);
+    console.warn("REST alerts error:", error);
     const live = document.querySelector(".live-status");
     if (live) live.textContent = "● API ТРЕВОГ НЕДОСТУПЕН";
   }
@@ -999,7 +938,7 @@ async function loadRegionsGeoJSON() {
       const responses = await Promise.all(
         REGION_FILES.map(async (file) => {
           const response = await fetch(base + file, { cache: "force-cache" });
-          if (!response.ok) throw new Error(`${file}: HTTP ${response.status}`);
+          if (!response.ok) throw new Error(`${file}: HTTP${response.status}`);
           return response.json();
         }),
       );
@@ -1039,7 +978,7 @@ async function loadRegionsGeoJSON() {
       return result;
     } catch (error) {
       lastError = error;
-      console.warn("Джерело меж областей недоступне:", base, error);
+      console.warn("Джерело меж недоступне:", base, error);
     }
   }
   throw lastError || new Error("Не вдалося завантажити межі областей");
@@ -1078,7 +1017,6 @@ function addRegionLayers(regionsData) {
     },
   });
 
-  // Чёрная подложка не даёт границам потеряться на светлой карте.
   map.addLayer({
     id: "oblast-border-casing",
     type: "line",
@@ -1103,7 +1041,6 @@ function addRegionLayers(regionsData) {
     },
   });
 
-  // Основной хорошо заметный контур реальных областей.
   map.addLayer({
     id: "oblast-border-main",
     type: "line",
@@ -1137,7 +1074,6 @@ function addRegionLayers(regionsData) {
     },
   });
 
-  // Тонкая зелёная сердцевина создаёт радарное свечение.
   map.addLayer({
     id: "oblast-border-core",
     type: "line",
@@ -1238,7 +1174,7 @@ map.on("load", async () => {
     startNeptunAlerts();
     startNeptunThreats();
   } catch (error) {
-    console.error("Дані карти або межі NEPTUN не завантажено:", error);
+    console.error("Map load error:", error);
     const live = document.querySelector(".live-status");
     if (live) live.textContent = "● MAP DATA ERROR";
   }
@@ -1257,7 +1193,7 @@ map.on("load", async () => {
 map.on("mousemove", (event) => {
   const { lng, lat } = event.lngLat;
   document.getElementById("coords").textContent =
-    `${Math.abs(lng).toFixed(4)}° ${lng >= 0 ? "E" : "W"} / ${Math.abs(lat).toFixed(4)}° ${lat >= 0 ? "N" : "S"}`;
+    `${Math.abs(lng).toFixed(4)}°${lng >= 0 ? "E" : "W"} / ${Math.abs(lat).toFixed(4)}°${lat >= 0 ? "N" : "S"}`;
 });
 map.on("resize", () => map.fire("move"));
 document
@@ -1268,7 +1204,6 @@ document
   .addEventListener("click", () => document.body.classList.toggle("alt"));
 window.addEventListener("resize", () => map.resize());
 
-// Telegram news feed (канал задаётся в TG_CHANNEL)
 const telegramFeed = document.getElementById("telegramFeed");
 const telegramFeedList = document.getElementById("telegramFeedList");
 const telegramFeedStatus = document.getElementById("telegramFeedStatus");
@@ -1325,9 +1260,9 @@ function renderTelegramNews(items) {
 
 let telegramBusy = false;
 async function loadTelegramNews() {
-  if (telegramBusy) return; // не запускаем новый запрос, пока не закончился прошлый
+  if (telegramBusy) return;
   telegramBusy = true;
-  telegramFeedStatus.textContent = "ОЬНОВЛЕНИЕ ЛЕНТЫ...";
+  telegramFeedStatus.textContent = "ОБНОВЛЕНИЕ ЛЕНТЫ...";
   try {
     renderTelegramNews(await fetchTelegramItems());
   } catch (error) {
@@ -1355,8 +1290,6 @@ setTelegramFeedHidden(localStorage.getItem("telegram-feed-hidden") === "1");
 loadTelegramNews();
 setInterval(loadTelegramNews, 30000);
 
-// === Замена слов из внешних данных (NEPTUN) на русские ===
-// Добавляйте сюда новые пары: [/что заменить/g, 'на что']
 const WORD_REPLACEMENTS = [
   [/Підтверджень/g, "Подтверждений"],
   [/підтверджень/g, "подтверждений"],
@@ -1391,10 +1324,9 @@ new MutationObserver((mutations) => {
   characterData: true,
 });
 
-// === Вторая вкладка новостей (другой Telegram-канал) ===
-const FEED2_CHANNEL = "kharkiv_info_chanel"; // <-- ваш канал, без @ и без https://t.me/
-const FEED2_LABEL = "Моніторинг ПЦ"; // надпись на вкладке (лучше короткая)
-const FEED2_TAB_OFFSET = 130; // на сколько пикселей ниже первой вкладки
+const FEED2_CHANNEL = "kharkiv_info_chanel";
+const FEED2_LABEL = "Моніторинг ПЦ";
+const FEED2_TAB_OFFSET = 130;
 
 (function initSecondFeed() {
   if (!FEED2_CHANNEL || FEED2_CHANNEL === "ИМЯ_КАНАЛА") return;
@@ -1402,7 +1334,6 @@ const FEED2_TAB_OFFSET = 130; // на сколько пикселей ниже �
   const tab1 = document.getElementById("telegramFeedTab");
   if (!panel1 || !tab1) return;
 
-  // Панель и вкладка №2 — копии первых
   const panel2 = panel1.cloneNode(true);
   panel2.id = "telegramFeed2";
   panel2.setAttribute("aria-label", "Новини Telegram: " + FEED2_CHANNEL);
@@ -1478,7 +1409,6 @@ const FEED2_TAB_OFFSET = 130; // на сколько пикселей ниже �
     if (!hidden) loadFeed2();
   }
 
-  // Открыли №2 — закрываем №1, и наоборот
   tab2.addEventListener("click", () => {
     setTelegramFeedHidden(true);
     setFeed2Hidden(false);
@@ -1486,32 +1416,23 @@ const FEED2_TAB_OFFSET = 130; // на сколько пикселей ниже �
   toggle2.addEventListener("click", () => setFeed2Hidden(true));
   tab1.addEventListener("click", () => setFeed2Hidden(true));
 
-  setInterval(loadFeed2, 30000); // обновляем только пока панель №2 открыта
+  setInterval(loadFeed2, 30000);
 })();
 
-// === Метки из постов Telegram: «Место, Тип» добавляет, «Место, відбій» убирает ===
-//   Дергачи, FPV            -> метка FPV над Дергачами
-//   Золочев, Шахед          -> метка БПЛА над Золочевом
-//   Золочев, відбій         -> убрать все метки в Золочеве
-//   Дергачи, FPV збито      -> убрать только FPV в Дергачах
-const POST_CHANNEL = "dimsvich_test"; // канал без @ и без https://t.me/
-const POST_TTL_MIN = 1; // страховка: метка сама исчезает через N минут после последнего поста о ней
-const POST_POLL_SEC = 10; // как часто читать канал
-const POST_VIEWBOX = "34.8,50.6,38.3,48.7"; // где искать населённые пункты (Харківщина): запад,север,восток,юг
+const POST_CHANNEL = "dimsvich_test";
+const POST_TTL_MIN = 1; // Метка автоматически ликвидируется через 1 минуту после удаления поста в ТГ
+const POST_POLL_SEC = 10;
+const POST_VIEWBOX = "34.8,50.6,38.3,48.7";
 const POST_REGION = "Харківська область";
-// Слова, которыми админ снимает метку (строчными буквами; можно добавлять свои):
 const POST_REMOVE_WORDS = [
   "відбій", "відбой", "збито", "збили", "збит", "сбит", "сбито", 
   "чисто", "знято", "знят", "не наблюдается", "не спостерігається"
 ];
-// Если поиск ошибается с каким-то населённым пунктом, задайте координаты вручную:
-// const POST_OVERRIDES = { 'Назва': [широта, довгота] };
 const POST_OVERRIDES = {};
 
 (function initPostTracking() {
   if (!POST_CHANNEL) return;
 
-  // ---------- 1. Типы ----------
   const NC = "а-яёіїєґ";
   const TYPE_RULES = [
     ["mig31k", new RegExp(`(?<![${NC}])(мiг|міг|миг)-?31`, "i")],
@@ -1558,32 +1479,30 @@ const POST_OVERRIDES = {};
     return null;
   };
 
-  // ---------- 2. Разбор строки «Место, Тип» ----------
-function parsePostLine(line) {
+  function parsePostLine(line) {
     const clean = String(line)
       .replace(/https?:\/\/\S+/g, " ")
       .replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}\u{200D}]/gu, " ")
       .replace(/\s+/g, " ")
       .trim();
 
-    // --- НОВОЕ: Проверка формата с готовыми координатами (например: 50.240302, 36.164108, ракета) ---
+    // 1. Формат координат: 50.240302, 36.164108, ракета
     const coordMatch = clean.match(/^([+-]?\d+\.\d+)\s*,\s*([+-]?\d+\.\d+)\s*[,;]\s*(.+)$/);
     if (coordMatch) {
       const lat = Number(coordMatch[1]);
       const lon = Number(coordMatch[2]);
       const rest = coordMatch[3];
       const type = detectType(rest);
-      const REMOVE_RE = new RegExp(`(?<![${NC}])(${POST_REMOVE_WORDS.join("|")})`, "i");
       
       if (REMOVE_RE.test(rest)) return { op: "-", lat, lon, type };
       if (type) {
-        const m = rest.match(/(\d{1,2})\s*[xх×](?=\s|$)|[xх×]\s*(\d{1,2})(?=\s|$)\vert{}(?:^\vert{}\s)(\d{1,2})(?=\s\vert{}$)/i);
+        const m = rest.match(/(\d{1,2})\s*[xх×](?=\s|$)|[xх×]\s*(\d{1,2})(?=\s|$)|(?:^|\s)(\d{1,2})(?=\s|$)/i);
         const count = m ? Math.max(1, +(m[1] || m[2] || m[3])) : 1;
         return { op: "+", lat, lon, type, count, isCoords: true };
       }
     }
-    // -----------------------------------------------------------------------------------------
 
+    // 2. Стандартный текстовый формат: Дергачи, FPV
     const parts = clean.split(/\s*[,;]\s*|\s+[-\u2013\u2014]+\s+/);
     if (parts.length < 2) return null;
     const place = parts[0]
@@ -1599,22 +1518,21 @@ function parsePostLine(line) {
     )
       return null;
     const type = detectType(rest);
-    const REMOVE_RE = new RegExp(`(?<![${NC}])(${POST_REMOVE_WORDS.join("|")})`, "i");
     if (REMOVE_RE.test(rest)) return { op: "-", place, type };
     if (!type) return null;
     const m = rest.match(
-      /(\d{1,2})\s*[xх×](?=\s|$)|[xх×]\s*(\d{1,2})(?=\s|$)\vert{}(?:^\vert{}\s)(\d{1,2})(?=\s\vert{}$)/i,
+      /(\d{1,2})\s*[xх×](?=\s|$)|[xх×]\s*(\d{1,2})(?=\s|$)|(?:^|\s)(\d{1,2})(?=\s|$)/i,
     );
     const count = m ? Math.max(1, +(m[1] || m[2] || m[3])) : 1;
     return { op: "+", place, type, count, isCoords: false };
   }
+
   const parsePostText = (text) =>
     String(text)
       .split(/[\n\r\u2022]+/)
       .map(parsePostLine)
       .filter(Boolean);
 
-  // «Дергачи» = «Дергачі» = «дергачи»
   const norm = (s) =>
     s
       .toLowerCase()
@@ -1623,58 +1541,29 @@ function parsePostLine(line) {
       .replace(/ґ/g, "г")
       .replace(/[''ʼ`]/g, "");
 
- // Проигрываем последние посты по порядку -> что осталось на карте
   function replay(items) {
     const state = new Map();
-    const postToKeys = new Map(); // Zberigayemo zv'yazok: ID postu -> klyuchi metok
-
-    const REMOVE_RE = new RegExp(
-      `(?<![${NC}])(${POST_REMOVE_WORDS.join("|")})`,
-      "i"
-    );
-
     for (const item of items) {
       const ts = Date.parse(item.datetime);
       if (!Number.isFinite(ts)) continue;
 
-      // 1. Yakshcho tse vidpovid (reply) i vona mistit slovo vidboyu
-      if (item.replyPostId && REMOVE_RE.test(item.text)) {
-        const keys = postToKeys.get(item.replyPostId);
-        if (keys) {
-          for (const k of keys) {
-            state.delete(k);
-          }
-          postToKeys.delete(item.replyPostId);
-        }
-      }
-
-      // 2. Standardnyy rozbir postu
       const parsed = parsePostText(item.text);
-      const addedKeys = [];
-
       for (const c of parsed) {
-        const np = norm(c.place);
+        const keyIdentifier = c.isCoords ? `${c.lat},${c.lon}` : norm(c.place);
         if (c.op === "+") {
-          const key = np + "|" + c.type;
+          const key = keyIdentifier + "|" + c.type;
           state.set(key, { ...c, ts, url: item.url });
-          addedKeys.push(key);
         } else {
           for (const k of [...state.keys()]) {
             const [p, t] = k.split("|");
-            if (p === np && (!c.type || t === c.type)) state.delete(k);
+            if (p === keyIdentifier && (!c.type || t === c.type)) state.delete(k);
           }
         }
-      }
-
-      // Zberigayemo klyuchi, yaki stvoryv tsej post
-      if (addedKeys.length > 0 && item.id) {
-        postToKeys.set(item.id, (postToKeys.get(item.id) || []).concat(addedKeys));
       }
     }
     return state;
   }
 
-  // ---------- 3. Название -> координаты (OpenStreetMap Nominatim, с кэшем) ----------
   const CACHE_KEY = "postGeoCache_v1";
   let geoCache = {};
   try {
@@ -1685,9 +1574,7 @@ function parsePostLine(line) {
   const saveCache = () => {
     try {
       localStorage.setItem(CACHE_KEY, JSON.stringify(geoCache));
-    } catch (e) {
-      /* ignore */
-    }
+    } catch (e) {}
   };
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   let geoChain = Promise.resolve();
@@ -1772,7 +1659,6 @@ function parsePostLine(line) {
     return job;
   }
 
-  // ---------- 4. Метки на карте ----------
   let postThreats = [];
   const isFresh = (t) =>
     Date.now() - Date.parse(t.updatedAt) < POST_TTL_MIN * 60000;
@@ -1809,18 +1695,29 @@ function parsePostLine(line) {
       );
       const next = [];
       for (const [key, c] of alive) {
-        const geo = await geocode(c.place);
-        if (!geo) continue;
+        let lat, lon, localityName;
+        if (c.isCoords) {
+          lat = c.lat;
+          lon = c.lon;
+          localityName = `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+        } else {
+          const geo = await geocode(c.place);
+          if (!geo) continue;
+          lat = geo.lat;
+          lon = geo.lon;
+          localityName = c.place;
+        }
+
         const iso = new Date(c.ts).toISOString();
         next.push({
           id: "pt-" + key,
           pt: true,
           type: c.type,
-          lat: geo.lat,
-          lon: geo.lon,
+          lat: lat,
+          lon: lon,
           count: c.count,
           title: threatMeta(c.type).label,
-          locality: c.place,
+          locality: localityName,
           region: POST_REGION,
           status: "active",
           updatedAt: iso,
