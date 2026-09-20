@@ -1612,46 +1612,6 @@ function replay(items) {
       "i"
     );
 
-    for (const item of items) {
-      const ts = Date.parse(item.datetime);
-      if (!Number.isFinite(ts)) continue;
-
-      const isRemoval = REMOVE_RE.test(item.text);
-
-      // Если это ответ на другое сообщение и там есть слово отбоя
-      if (isRemoval && item.replyText) {
-        const parsedReply = parsePostText(item.replyText);
-        for (const rc of parsedReply) {
-          const np = norm(rc.place);
-          // Удаляем метку этого же типа для этого же населенного пункта
-          for (const k of [...state.keys()]) {
-            const [p, t] = k.split("|");
-            if (p === np && (!rc.type || t === rc.type)) {
-              state.delete(k);
-            }
-          }
-        }
-      }
-
-      // Стандартный разбор текущего поста
-      const parsed = parsePostText(item.text);
-      for (const c of parsed) {
-        const np = norm(c.place);
-        if (c.op === "+") {
-          const key = np + "|" + c.type;
-          state.set(key, { ...c, ts, url: item.url });
-        } else {
-          // Прямой отбой в тексте без реплая
-          for (const k of [...state.keys()]) {
-            const [p, t] = k.split("|");
-            if (p === np && (!c.type || t === c.type)) state.delete(k);
-          }
-        }
-      }
-    }
-    return state;
-  }
-
   for (const item of items) {
     const ts = Date.parse(item.datetime);
     if (!Number.isFinite(ts)) continue;
