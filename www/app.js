@@ -1559,12 +1559,31 @@ const POST_OVERRIDES = {};
   };
 
   // ---------- 2. Разбор строки «Место, Тип» ----------
-  function parsePostLine(line) {
+function parsePostLine(line) {
     const clean = String(line)
       .replace(/https?:\/\/\S+/g, " ")
       .replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}\u{200D}]/gu, " ")
       .replace(/\s+/g, " ")
       .trim();
+
+    // --- НОВОЕ: Проверка формата с готовыми координатами (например: 50.240302, 36.164108, ракета) ---
+    const coordMatch = clean.match(/^([+-]?\d+\.\d+)\s*,\s*([+-]?\d+\.\d+)\s*[,;]\s*(.+)$/);
+    if (coordMatch) {
+      const lat = Number(coordMatch[1]);
+      const lon = Number(coordMatch[2]);
+      const rest = coordMatch[3];
+      const type = detectType(rest);
+      const REMOVE_RE = new RegExp(`(?<![${NC}])(${POST_REMOVE_WORDS.join("|")})`, "i");
+      
+      if (REMOVE_RE.test(rest)) return { op: "-", lat, lon, type };
+      if (type) {
+        const m = rest.match(/(\d{1,2})\s*[xх×](?=\s|$)|[xх×]\s*(\d{1,2})(?=\s|$)\vert{}(?:^\vert{}\s)(\d{1,2})(?=\s\vert{}$)/i);
+        const count = m ? Math.max(1, +(m[1] || m[2] || m[3])) : 1;
+        return { op: "+", lat, lon, type, count, isCoords: true };
+      }
+    }
+    // -----------------------------------------------------------------------------------------
+
     const parts = clean.split(/\s*[,;]\s*|\s+[-\u2013\u2014]+\s+/);
     if (parts.length < 2) return null;
     const place = parts[0]
@@ -1580,13 +1599,14 @@ const POST_OVERRIDES = {};
     )
       return null;
     const type = detectType(rest);
+    const REMOVE_RE = new RegExp(`(?<![${NC}])(${POST_REMOVE_WORDS.join("|")})`, "i");
     if (REMOVE_RE.test(rest)) return { op: "-", place, type };
     if (!type) return null;
     const m = rest.match(
-      /(\d{1,2})\s*[xх×](?=\s|$)|[xх×]\s*(\d{1,2})(?=\s|$)|(?:^|\s)(\d{1,2})(?=\s|$)/i,
+      /(\d{1,2})\s*[xх×](?=\s|$)|[xх×]\s*(\d{1,2})(?=\s|$)\vert{}(?:^\vert{}\s)(\d{1,2})(?=\s\vert{}$)/i,
     );
     const count = m ? Math.max(1, +(m[1] || m[2] || m[3])) : 1;
-    return { op: "+", place, type, count };
+    return { op: "+", place, type, count, isCoords: false };
   }
   const parsePostText = (text) =>
     String(text)
