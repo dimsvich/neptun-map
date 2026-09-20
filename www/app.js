@@ -317,7 +317,8 @@ function showThreatPopup(threat, marker) {
     .addTo(map);
 }
 
-function syncThreatMarkers() {
+
+let syncThreatMarkers = function() {
   const active = currentThreats.filter(t => t && t.status !== 'resolved' && Number.isFinite(Number(t.lat)) && Number.isFinite(Number(t.lon)));
   const activeIds = new Set();
 
@@ -347,7 +348,8 @@ function syncThreatMarkers() {
       threatMarkers.delete(id);
     }
   }
-}
+
+};
 
 function addNeptunThreatLayers() {
   // Траєкторії залишаються MapLibre-шаром, а самі цілі — DOM-маркерами.
@@ -1223,7 +1225,7 @@ const POST_OVERRIDES = {};
       .replace(/\s+/g, ' ').trim();
     const parts = clean.split(/\s*[,;]\s*|\s+[-–—]+\s+/);
     if (parts.length < 2) return null;                       // без разделителя — это не команда
-    const place = parts[0].replace(/[()"«»“”!?.:]+/g, '').trim();
+    const place = parts[0].replace(/[()"«»\u201C\u201D!?.:]+/g, '').trim();
     const rest = parts.slice(1).join(' ');
     if (place.length < 2 || place.length > 40 || place.split(' ').length > 3) return null;
     if (!/^[А-ЯІЇЄҐЁ]/.test(place) || STOP.has(place.toLowerCase()) || /област|район|громад/i.test(place)) return null;
@@ -1234,10 +1236,10 @@ const POST_OVERRIDES = {};
     const count = m ? Math.max(1, +(m[1] || m[2] || m[3])) : 1;
     return { op: '+', place, type, count };
   }
-  const parsePostText = text => String(text).split(/[\n\r•]+/).map(parsePostLine).filter(Boolean);
+  const parsePostText = text => String(text).split(/[\n\r\u2022]+/).map(parsePostLine).filter(Boolean);
 
   // «Дергачи» = «Дергачі» = «дергачи»
-  const norm = s => s.toLowerCase().replace(/[іїы]/g, 'и').replace(/[ёє]/g, 'е').replace(/ґ/g, 'г').replace(/['’ʼ`]/g, '');
+  const norm = s => s.toLowerCase().replace(/[іїы]/g, 'и').replace(/[ёє]/g, 'е').replace(/ґ/g, 'г').replace(/[''ʼ`]/g, '');
 
   // Проигрываем последние посты по порядку -> что осталось на карте
   function replay(items) {
