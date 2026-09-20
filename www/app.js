@@ -1483,16 +1483,8 @@ const POST_VIEWBOX = "34.8,50.6,38.3,48.7"; // где искать населё�
 const POST_REGION = "Харківська область";
 // Слова, которыми админ снимает метку (строчными буквами; можно добавлять свои):
 const POST_REMOVE_WORDS = [
-  "відбій",
-  "відбой",
-  "збито",
-  "збили",
-  "збит",
-  "сбит",
-  "сбито",
-  "чисто",
-  "знято",
-  "знят",
+  "відбій", "відбой", "збито", "збили", "збит", "сбит", "сбито", 
+  "чисто", "знято", "знят", "не наблюдается", "не спостерігається"
 ];
 // Если поиск ошибается с каким-то населённым пунктом, задайте координаты вручную:
 // const POST_OVERRIDES = { 'Назва': [широта, довгота] };
@@ -1594,24 +1586,56 @@ const POST_OVERRIDES = {};
       .replace(/[''ʼ`]/g, "");
 
   // Проигрываем последние посты по порядку -> что осталось на карте
-  function replay(items) {
-    const state = new Map();
-    for (const item of items) {
-      const ts = Date.parse(item.datetime);
-      if (!Number.isFinite(ts)) continue;
-      for (const c of parsePostText(item.text)) {
-        const np = norm(c.place);
-        if (c.op === "+")
-          state.set(np + "|" + c.type, { ...c, ts, url: item.url });
-        else
-          for (const k of [...state.keys()]) {
-            const [p, t] = k.split("|");
-            if (p === np && (!c.type || t === c.type)) state.delete(k);
-          }
+ function replay(items) {
+  const state = new Map();
+  const postToKeys = new Map(); // Связь: ID поста -> список ключей меток на карте
+
+  const REMOVE_RE = new RegExp(
+    `(?<![${NC}])(${POST_REMOVE_WORDS.join("|")})`,
+    "i"
+  );
+
+  for (const item of items) {
+    const ts = Date.parse(item.datetime);
+    if (!Number.isFinite(ts)) continue;
+
+    // 1. Обработка ответа (reply): если пост — это ответ и содержит слова отбоя
+    if (item.replyTo && REMOVE_RE.test(item.text)) {
+      const keys = postToKeys.get(item.replyTo);
+      if (keys) {
+        // Удаляем все метки, которые были созданы оригинальным постом
+        for (const k of keys) {
+          state.delete(k);
+        }
+        postToKeys.delete(item.replyTo);
       }
     }
-    return state;
+    // 2. Стандартный разбор текста "Населенный пункт, Тип"
+    const parsed = parsePostText(item.text);
+    const addedKeys = [];
+
+    for (const c of parsed) {
+      const np = norm(c.place);
+      if (c.op === "+") {
+        const key = np + "|" + c.type;
+        state.set(key, { ...c, ts, url: item.url });
+        addedKeys.push(key);
+      } else {
+        // c.op === "-" (классический отбой без реплая)
+        for (const k of [...state.keys()]) {
+          const [p, t] = k.split("|");
+          if (p === np && (!c.type || t === c.type)) state.delete(k);
+        }
+      }
+    }
+
+    // Запоминаем, какие метки добавил этот конкретный пост
+    if (addedKeys.length > 0 && item.id) {
+      postToKeys.set(item.id, (postToKeys.get(item.id) || []).concat(addedKeys));
+    }
   }
+  return state;
+}
 
   // ---------- 3. Название -> координаты (OpenStreetMap Nominatim, с кэшем) ----------
   const CACHE_KEY = "postGeoCache_v1";
