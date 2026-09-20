@@ -718,15 +718,31 @@ function parseTelegramPage(page) {
     doc.querySelectorAll(".tgme_widget_message_wrap"),
   ).slice(-TG_MAX_ITEMS);
   const items = [];
+  
   for (const wrap of wraps) {
-    const post = wrap.querySelector("[data-post]")?.getAttribute("data-post");
+    const postDiv = wrap.querySelector("[data-post]");
+    const post = postDiv?.getAttribute("data-post");
     const textEl = wrap.querySelector(".tgme_widget_message_text");
     if (!post || !textEl) continue;
+
+    // Ищем текст того сообщения, на которое ответили (цитату в блоке реплая)
+    let replyText = null;
+    const replyEl = wrap.querySelector('.tgme_widget_message_reply');
+    if (replyEl) {
+      const replyTextEl = replyEl.querySelector('.tgme_widget_message_text');
+      if (replyTextEl) {
+        replyText = replyTextEl.textContent.trim();
+      }
+    }
+
     textEl.querySelectorAll("br").forEach((br) => br.replaceWith("\n"));
     let text = textEl.textContent.replace(/\n{3,}/g, "\n\n").trim();
     if (!text) continue;
     if (text.length > TG_MAX_CHARS) text = text.slice(0, TG_MAX_CHARS) + "…";
+    
     items.push({
+      id: post,
+      replyText: replyText, // Текст поста, на который сделали реплай
       text,
       datetime: wrap.querySelector("time")?.getAttribute("datetime") || "",
       url: "https://t.me/" + post,
@@ -1586,14 +1602,55 @@ const POST_OVERRIDES = {};
       .replace(/[''ʼ`]/g, "");
 
   // Проигрываем последние посты по порядку -> что осталось на карте
- function replay(items) {
-  const state = new Map();
-  const postToKeys = new Map(); // Связь: ID поста -> список ключей меток на карте
+function replay(items) {
+    const state = new Map();
+    // Сохраняем историю созданных ключей по тексту сообщения или ID
+    const textToKeys = new Map();
 
-  const REMOVE_RE = new RegExp(
-    `(?<![${NC}])(${POST_REMOVE_WORDS.join("|")})`,
-    "i"
-  );
+    const REMOVE_RE = new RegExp(
+      `(?<![${NC}])(${POST_REMOVE_WORDS.join("|")})`,
+      "i"
+    );
+
+    for (const item of items) {
+      const ts = Date.parse(item.datetime);
+      if (!Number.isFinite(ts)) continue;
+
+      const isRemoval = REMOVE_RE.test(item.text);
+
+      // Если это ответ на другое сообщение и там есть слово отбоя
+      if (isRemoval && item.replyText) {
+        const parsedReply = parsePostText(item.replyText);
+        for (const rc of parsedReply) {
+          const np = norm(rc.place);
+          // Удаляем метку этого же типа для этого же населенного пункта
+          for (const k of [...state.keys()]) {
+            const [p, t] = k.split("|");
+            if (p === np && (!rc.type || t === rc.type)) {
+              state.delete(k);
+            }
+          }
+        }
+      }
+
+      // Стандартный разбор текущего поста
+      const parsed = parsePostText(item.text);
+      for (const c of parsed) {
+        const np = norm(c.place);
+        if (c.op === "+") {
+          const key = np + "|" + c.type;
+          state.set(key, { ...c, ts, url: item.url });
+        } else {
+          // Прямой отбой в тексте без реплая
+          for (const k of [...state.keys()]) {
+            const [p, t] = k.split("|");
+            if (p === np && (!c.type || t === c.type)) state.delete(k);
+          }
+        }
+      }
+    }
+    return state;
+  }
 
   for (const item of items) {
     const ts = Date.parse(item.datetime);
