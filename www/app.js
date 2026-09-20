@@ -1180,3 +1180,194 @@ const FEED2_TAB_OFFSET = 130;         // на сколько пикселей н
   setInterval(loadFeed2, 30000);   // обновляем только пока панель №2 открыта
 })();
 
+// === Метки из постов Telegram: «Место, Тип» добавляет, «Место, відбій» убирает ===
+//   Дергачи, FPV            -> метка FPV над Дергачами
+//   Золочев, Шахед          -> метка БПЛА над Золочевом
+//   Золочев, відбій         -> убрать все метки в Золочеве
+//   Дергачи, FPV збито      -> убрать только FPV в Дергачах
+const POST_CHANNEL = 'kharkiv_info_chanel';   // канал без @ и без https://t.me/
+const POST_TTL_MIN = 60;                      // страховка: метка сама исчезает через N минут после последнего поста о ней
+const POST_POLL_SEC = 30;                     // как часто читать канал
+const POST_VIEWBOX = '34.8,50.6,38.3,48.7';   // где искать населённые пункты (Харківщина): запад,север,восток,юг
+const POST_REGION = 'Харківська область';
+// Слова, которыми админ снимает метку (строчными буквами; можно добавлять свои):
+const POST_REMOVE_WORDS = ['відбій', 'відбой', 'збито', 'збили', 'збит', 'сбит', 'сбито', 'чисто', 'знято', 'знят'];
+// Если поиск ошибается с каким-то населённым пунктом, задайте координаты вручную:
+// const POST_OVERRIDES = { 'Назва': [широта, довгота] };
+const POST_OVERRIDES = {};
+
+(function initPostTracking() {
+  if (!POST_CHANNEL) return;
+
+  // ---------- 1. Типы ----------
+  const NC = 'а-яёіїєґ';
+  const TYPE_RULES = [
+    ['mig31k',    new RegExp(`(?<![${NC}])(міг|миг)-?31`, 'i')],
+    ['ballistic', new RegExp(`(?<![${NC}])(баліст|баллист|іскандер|искандер)`, 'i')],
+    ['missile',   new RegExp(`(?<![${NC}])(ракет|калібр|калибр)`, 'i')],
+    ['kab',       new RegExp(`(?<![${NC}])(каб(?![${NC}])|авіабомб|авиабомб)`, 'i')],
+    ['fpv',       new RegExp(`(?<![${NC}])(fpv|фпв)`, 'i')],
+    ['recon',     new RegExp(`(?<![${NC}])(розвід|разведк|разведыв|орлан)`, 'i')],
+    ['uav',       new RegExp(`(?<![${NC}])(шахед|шахід|шахид|герань|бпла|бпак|дрон|ударн)`, 'i')]
+  ];
+  const REMOVE_RE = new RegExp(`(?<![${NC}])(${POST_REMOVE_WORDS.join('|')})`, 'i');
+  const STOP = new Set(['увага', 'внимание', 'обережно', 'ситуація', 'ситуация', 'харківщина', 'харьковщина',
+    'зараз', 'наразі', 'сейчас', 'терміново', 'срочно', 'новини', 'новости', 'україна', 'украина']);
+  const detectType = s => { for (const [t, re] of TYPE_RULES) if (re.test(s)) return t; return null; };
+
+  // ---------- 2. Разбор строки «Место, Тип» ----------
+  function parsePostLine(line) {
+    const clean = String(line)
+      .replace(/https?:\/\/\S+/g, ' ')
+      .replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}\u{200D}]/gu, ' ')
+      .replace(/\s+/g, ' ').trim();
+    const parts = clean.split(/\s*[,;]\s*|\s+[-–—]+\s+/);
+    if (parts.length < 2) return null;                       // без разделителя — это не команда
+    const place = parts[0].replace(/[()"«»“”!?.:]+/g, '').trim();
+    const rest = parts.slice(1).join(' ');
+    if (place.length < 2 || place.length > 40 || place.split(' ').length > 3) return null;
+    if (!/^[А-ЯІЇЄҐЁ]/.test(place) || STOP.has(place.toLowerCase()) || /област|район|громад/i.test(place)) return null;
+    const type = detectType(rest);
+    if (REMOVE_RE.test(rest)) return { op: '-', place, type };
+    if (!type) return null;
+    const m = rest.match(/(\d{1,2})\s*[xх×](?=\s|$)|[xх×]\s*(\d{1,2})(?=\s|$)|(?:^|\s)(\d{1,2})(?=\s|$)/i);
+    const count = m ? Math.max(1, +(m[1] || m[2] || m[3])) : 1;
+    return { op: '+', place, type, count };
+  }
+  const parsePostText = text => String(text).split(/[\n\r•]+/).map(parsePostLine).filter(Boolean);
+
+  // «Дергачи» = «Дергачі» = «дергачи»
+  const norm = s => s.toLowerCase().replace(/[іїы]/g, 'и').replace(/[ёє]/g, 'е').replace(/ґ/g, 'г').replace(/['’ʼ`]/g, '');
+
+  // Проигрываем последние посты по порядку -> что осталось на карте
+  function replay(items) {
+    const state = new Map();
+    for (const item of items) {
+      const ts = Date.parse(item.datetime);
+      if (!Number.isFinite(ts)) continue;
+      for (const c of parsePostText(item.text)) {
+        const np = norm(c.place);
+        if (c.op === '+') state.set(np + '|' + c.type, { ...c, ts, url: item.url });
+        else for (const k of [...state.keys()]) {
+          const [p, t] = k.split('|');
+          if (p === np && (!c.type || t === c.type)) state.delete(k);
+        }
+      }
+    }
+    return state;
+  }
+
+  // ---------- 3. Название -> координаты (OpenStreetMap Nominatim, с кэшем) ----------
+  const CACHE_KEY = 'postGeoCache_v1';
+  let geoCache = {};
+  try { geoCache = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}'); } catch (e) { geoCache = {}; }
+  const saveCache = () => { try { localStorage.setItem(CACHE_KEY, JSON.stringify(geoCache)); } catch (e) { /* ignore */ } };
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  let geoChain = Promise.resolve();
+
+  function cached(key) {
+    const hit = geoCache[key];
+    if (!hit) return undefined;
+    if (hit.lat != null) return { lat: hit.lat, lon: hit.lon };
+    return Date.now() - hit.ts < 6 * 3600 * 1000 ? null : undefined;   // «не найдено» помним 6 часов
+  }
+
+  // Варианты написания: русское «Золочев» -> украинское «Золочів» и т.п.
+  function variants(place) {
+    const v = [place, place.replace(/ев$/, 'ів'), place.replace(/ев$/, 'їв'), place.replace(/ея$/, 'ія'), place.replace(/и$/, 'і')];
+    return [...new Set(v)];
+  }
+
+  async function nominatim(name) {
+    const url = 'https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&accept-language=uk'
+      + '&countrycodes=ua&bounded=1&viewbox=' + POST_VIEWBOX + '&q=' + encodeURIComponent(name);
+    const text = IS_NATIVE_APP
+      ? await nativeGet(url, { 'User-Agent': 'ChysteNebo-personal-map/1.0', 'Accept-Language': 'uk' })
+      : await (await fetch(url)).text();
+    const list = JSON.parse(text);
+    const ok = Array.isArray(list) ? list.find(r => r.category === 'place' || r.class === 'place') : null;
+    return ok ? { lat: Number(ok.lat), lon: Number(ok.lon) } : null;
+  }
+
+  // Возвращает {lat, lon}, null (не найдено) или undefined (ошибка сети — попробуем позже)
+  function geocode(place) {
+    if (POST_OVERRIDES[place]) return Promise.resolve({ lat: POST_OVERRIDES[place][0], lon: POST_OVERRIDES[place][1] });
+    const key = norm(place);
+    const hit = cached(key);
+    if (hit !== undefined) return Promise.resolve(hit);
+    const job = geoChain.then(async () => {
+      const again = cached(key);
+      if (again !== undefined) return again;
+      for (const name of variants(place)) {
+        try {
+          const geo = await nominatim(name);
+          await sleep(1100);                                   // правила Nominatim: не чаще 1 запроса в секунду
+          if (geo) { geoCache[key] = { ...geo, ts: Date.now() }; saveCache(); return geo; }
+        } catch (e) {
+          console.warn('Geocode error:', name, e);
+          await sleep(1100);
+          return undefined;
+        }
+      }
+      geoCache[key] = { lat: null, ts: Date.now() };
+      saveCache();
+      return null;
+    });
+    geoChain = job.catch(() => {});
+    return job;
+  }
+
+  // ---------- 4. Метки на карте ----------
+  let postThreats = [];
+  const isFresh = t => Date.now() - Date.parse(t.updatedAt) < POST_TTL_MIN * 60000;
+
+  const origSync = syncThreatMarkers;
+  syncThreatMarkers = function () {
+    try {
+      currentThreats = currentThreats.filter(t => !(t && t.pt)).concat(postThreats.filter(isFresh));
+    } catch (e) { console.warn('Post merge error:', e); }
+    return origSync.apply(this, arguments);
+  };
+
+  function refresh() {
+    syncThreatMarkers();
+    const counter = document.getElementById('threatCount');
+    if (counter) counter.textContent = counter.textContent.replace(/ЦІЛІ: \d+/, 'ЦІЛІ: ' + currentThreats.length);
+  }
+
+  let busy = false, lastSig = '';
+  async function poll() {
+    if (busy || document.hidden || !IS_NATIVE_APP) return;
+    busy = true;
+    try {
+      const page = await nativeGet('https://t.me/s/' + POST_CHANNEL, { 'Accept-Language': 'uk-UA,uk;q=0.9,en;q=0.7' });
+      const alive = [...replay(parseTelegramPage(page)).entries()]
+        .filter(([, c]) => Date.now() - c.ts < POST_TTL_MIN * 60000);
+      const next = [];
+      for (const [key, c] of alive) {
+        const geo = await geocode(c.place);
+        if (!geo) continue;                                   // не нашли / нет сети — пропускаем, повторим в след. опросе
+        const iso = new Date(c.ts).toISOString();
+        next.push({
+          id: 'pt-' + key, pt: true, type: c.type, lat: geo.lat, lon: geo.lon, count: c.count,
+          title: threatMeta(c.type).label, locality: c.place, region: POST_REGION,
+          status: 'active', updatedAt: iso, createdAt: iso, sourceCount: 1,
+          explanationShort: 'Telegram @' + POST_CHANNEL
+        });
+      }
+      postThreats = next;
+    } catch (e) {
+      console.warn('Post tracking error:', e);               // при ошибке сети оставляем то, что уже на карте
+    } finally {
+      busy = false;
+      const sig = JSON.stringify(postThreats.filter(isFresh).map(t => [t.id, t.lat, t.lon, t.count, t.updatedAt]));
+      if (sig !== lastSig) { lastSig = sig; refresh(); }
+    }
+  }
+
+  window.postDebug = { parsePostLine, parsePostText, replay, poll };
+  setTimeout(poll, 3000);
+  setInterval(poll, POST_POLL_SEC * 1000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) poll(); });
+})();
+
