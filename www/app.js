@@ -725,13 +725,15 @@ function parseTelegramPage(page) {
     const textEl = wrap.querySelector(".tgme_widget_message_text");
     if (!post || !textEl) continue;
 
-    // Ищем текст того сообщения, на которое ответили (цитату в блоке реплая)
-    let replyText = null;
+    // Shukaemo posylannya na oryhinalnyy post u bloki reply
+    let replyPostId = null;
     const replyEl = wrap.querySelector('.tgme_widget_message_reply');
     if (replyEl) {
-      const replyTextEl = replyEl.querySelector('.tgme_widget_message_text');
-      if (replyTextEl) {
-        replyText = replyTextEl.textContent.trim();
+      const href = replyEl.getAttribute('href');
+      if (href) {
+        // Vytyahuyemo "channel/id" z posylannya (napryklad t.me/dimsvich_test/123 -> dimsvich_test/123)
+        const m = href.match(/t\.me\/([^/?#]+\/\d+)/);
+        if (m) replyPostId = m[1];
       }
     }
 
@@ -742,7 +744,7 @@ function parseTelegramPage(page) {
     
     items.push({
       id: post,
-      replyText: replyText, // Текст поста, на который сделали реплай
+      replyPostId: replyPostId, // ID oryhinalnoho postu, na yakyy zrobleno reply
       text,
       datetime: wrap.querySelector("time")?.getAttribute("datetime") || "",
       url: "https://t.me/" + post,
@@ -1604,6 +1606,7 @@ const POST_OVERRIDES = {};
  // Проигрываем последние посты по порядку -> что осталось на карте
   function replay(items) {
     const state = new Map();
+    const postToKeys = new Map(); // Zberigayemo zv'yazok: ID postu -> klyuchi metok
 
     const REMOVE_RE = new RegExp(
       `(?<![${NC}])(${POST_REMOVE_WORDS.join("|")})`,
@@ -1614,35 +1617,38 @@ const POST_OVERRIDES = {};
       const ts = Date.parse(item.datetime);
       if (!Number.isFinite(ts)) continue;
 
-      // 1. Обработка ответа (reply): если есть текст цитаты и слово отбоя
-      if (item.replyText && REMOVE_RE.test(item.text)) {
-        const parsedReply = parsePostText(item.replyText);
-        for (const rc of parsedReply) {
-          const np = norm(rc.place);
-          for (const k of [...state.keys()]) {
-            const [p, t] = k.split("|");
-            // Если населенный пункт совпадает, удаляем метку (или конкретный тип, если указан)
-            if (p === np && (!rc.type || t === rc.type)) {
-              state.delete(k);
-            }
+      // 1. Yakshcho tse vidpovid (reply) i vona mistit slovo vidboyu
+      if (item.replyPostId && REMOVE_RE.test(item.text)) {
+        const keys = postToKeys.get(item.replyPostId);
+        if (keys) {
+          for (const k of keys) {
+            state.delete(k);
           }
+          postToKeys.delete(item.replyPostId);
         }
       }
 
-      // 2. Стандартный разбор текста текущего поста («Населенный пункт, Тип»)
+      // 2. Standardnyy rozbir postu
       const parsed = parsePostText(item.text);
+      const addedKeys = [];
+
       for (const c of parsed) {
         const np = norm(c.place);
         if (c.op === "+") {
           const key = np + "|" + c.type;
           state.set(key, { ...c, ts, url: item.url });
+          addedKeys.push(key);
         } else {
-          // Прямой отбой в тексте без реплая
           for (const k of [...state.keys()]) {
             const [p, t] = k.split("|");
             if (p === np && (!c.type || t === c.type)) state.delete(k);
           }
         }
+      }
+
+      // Zberigayemo klyuchi, yaki stvoryv tsej post
+      if (addedKeys.length > 0 && item.id) {
+        postToKeys.set(item.id, (postToKeys.get(item.id) || []).concat(addedKeys));
       }
     }
     return state;
