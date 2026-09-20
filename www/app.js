@@ -331,6 +331,13 @@ function createThreatMarkerElement(threat) {
   const meta = threatMeta(threat.type);
   const el = document.createElement("div");
   el.className = "live-threat-marker";
+  
+  // --- ДОБАВЛЕНО: если это метка из постов Telegram, добавляем зелёный класс ---
+  if (threat.pt) {
+    el.classList.add("is-telegram-post");
+  }
+  // --------------------------------------------------------------------------
+
   el.dataset.threatId = String(threat.id || "");
   el.style.setProperty("--threat-color", meta.color);
 
