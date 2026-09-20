@@ -619,4 +619,10 @@ display: none !important;
 .maplibregl-popup-content { font-size: 14px; }
 .threat-popup strong { font-size: 16px; }
 
+/* Зеленая рамка и свечение для меток из Telegram-постов */
+.live-threat-marker.is-telegram-post {
+  border: 2px solid #2ecc71 !important;
+  box-shadow: 0 0 10px rgba(46, 204, 113, 0.7);
+  border-radius: 50%; /* или скругление под ваш дизайн маркеров */
+}
 
